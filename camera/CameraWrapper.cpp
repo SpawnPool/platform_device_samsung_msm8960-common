@@ -156,6 +156,7 @@ char * camera_fixup_setparams(struct camera_device * device, const char * settin
     const char* camMode = params.get(KEY_SAMSUNG_CAMERA_MODE);
 
     bool isVideo = !strcmp(params.get(android::CameraParameters::KEY_RECORDING_HINT), "true");
+    bool enableZSL = !strcmp(params.get(android::CameraParameters::KEY_ZSL), "on");
 
     // fix params here
     // No need to fix-up ISO_HJR, it is the same for userspace and the camera lib
@@ -198,18 +199,22 @@ char * camera_fixup_setparams(struct camera_device * device, const char * settin
 
 #ifdef SAMSUNG_CAMERA_MODE
     /* Samsung camcorder mode */
-    params.set(KEY_SAMSUNG_CAMERA_MODE, isVideo ? "1" : "0");
+    if (!strcmp(camMode, "-1")) {
+        if (!strcmp(params.get(android::CameraParameters::KEY_PREVIEW_FRAME_RATE), "15") && !isVideo) {
+            // Do nothing. Hangouts actually likes the mode to be -1.
+        } else {
+        params.set(KEY_SAMSUNG_CAMERA_MODE, isVideo ? "1" : "0");
+        }
+    }
 #endif
 #ifdef ENABLE_ZSL
     /* Only activate ZSL if requested by the app! */
-    if (!strcmp(params.get(android::CameraParameters::KEY_ZSL), "on")) {
-        params.set(android::CameraParameters::KEY_CAMERA_MODE, "1");
+        params.set(android::CameraParameters::KEY_CAMERA_MODE, enableZSL ? "1" : "0");
 #ifdef MAGIC_ZSL_1508
         if (!isVideo) {
             camera_send_command(device, 1508, 0, 0);
         }
 #endif
-    }
 #endif
     android::String8 strParams = params.flatten();
 
